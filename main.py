@@ -1,3 +1,10 @@
+import sys
+
+# ✅ Patch for Python 3.13+ to prevent crash due to missing 'audioop' (used in discord.py voice features)
+if sys.version_info >= (3, 13):
+    import types
+    sys.modules['audioop'] = types.SimpleNamespace()
+
 import discord
 from discord.ext import commands, tasks
 import asyncio
@@ -17,7 +24,7 @@ ACCESS_ROLE_ID = int(os.getenv("ACCESS_ROLE_ID"))
 ACCESS_CHANNEL_ID = int(os.getenv("ACCESS_CHANNEL_ID"))  # Message to new users
 LOG_CHANNEL_ID = int(os.getenv("LOG_CHANNEL_ID"))        # Logging channel
 MAIN_SERVER_INVITE = os.getenv("MAIN_SERVER_INVITE", "https://discord.gg/YOUR_LINK")
-WAIT_MINUTES = int(os.getenv("WAIT_MINUTES", 10))
+WAIT_MINUTES = int(os.getenv("WAIT_MINUTES", 5))
 
 @bot.event
 async def on_ready():
