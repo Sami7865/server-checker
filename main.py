@@ -1,5 +1,5 @@
 import sys
-# Patch for Python 3.13+ missing audioop module
+# Patch for Python 3.13+ audioop missing
 if sys.version_info >= (3, 13):
     import types
     sys.modules['audioop'] = types.SimpleNamespace()
@@ -15,11 +15,11 @@ intents = discord.Intents.default()
 intents.members = True
 intents.guilds = True
 
-# Bot setup
+# Bot
 bot = commands.Bot(command_prefix="!", intents=intents)
 tree = bot.tree
 
-# Environment config
+# ENV config
 NSFW_GUILD_ID = int(os.getenv("NSFW_GUILD_ID"))
 MAIN_GUILD_ID = int(os.getenv("MAIN_GUILD_ID"))
 ACCESS_ROLE_ID = int(os.getenv("ACCESS_ROLE_ID"))
@@ -28,7 +28,7 @@ LOG_CHANNEL_ID = int(os.getenv("LOG_CHANNEL_ID"))
 MAIN_SERVER_INVITE = os.getenv("MAIN_SERVER_INVITE", "https://discord.gg/YOUR_LINK")
 TOKEN = os.getenv("DISCORD_TOKEN")
 
-# Runtime config
+# Runtime config (changeable via slash commands)
 config = {
     "wait_minutes": float(os.getenv("WAIT_MINUTES", 10)),
     "auto_scan_interval": int(os.getenv("AUTO_SCAN_INTERVAL", 30))
@@ -40,9 +40,11 @@ async def on_ready():
     check_main_server_membership.start()
     auto_scan_all_members.change_interval(minutes=config["auto_scan_interval"])
     auto_scan_all_members.start()
+
     try:
-        await tree.sync()
-        print("[SYNCED] Slash commands")
+        guild = discord.Object(id=NSFW_GUILD_ID)
+        await tree.sync(guild=guild)
+        print(f"[SYNCED] Slash commands to NSFW guild {NSFW_GUILD_ID}")
     except Exception as e:
         print(f"[ERROR] Slash command sync failed: {e}")
 
@@ -106,47 +108,36 @@ async def auto_scan_all_members():
             print(f"[ERROR] Auto-scan: {e}")
     print(f"[AUTO SCAN DONE] ✅ {added} added, ❌ {removed} removed")
 
-# Slash command: Show config
-@tree.command(name="config_status", description="Show current bot config")
+# Slash command to show config
+@tree.command(name="config_status", description="Show current bot config", guild=discord.Object(id=NSFW_GUILD_ID))
+@commands.has_permissions(administrator=True)
 async def config_status(interaction: discord.Interaction):
-    if not interaction.user.guild_permissions.administrator:
-        await interaction.response.send_message("❌ You need administrator permissions.", ephemeral=True)
-        return
-
     await interaction.response.send_message(
         f"🔧 Current Config:\n• Wait Time: **{config['wait_minutes']}** min\n• Auto-Scan Interval: **{config['auto_scan_interval']}** min",
         ephemeral=True
     )
 
-# Slash command: Set wait time
-@tree.command(name="set_wait_time", description="Set wait time (in minutes) before checking user")
+# Slash command to set wait time
+@tree.command(name="set_wait_time", description="Set wait time (in minutes) before checking user", guild=discord.Object(id=NSFW_GUILD_ID))
+@commands.has_permissions(administrator=True)
 async def set_wait_time(interaction: discord.Interaction, minutes: float):
-    if not interaction.user.guild_permissions.administrator:
-        await interaction.response.send_message("❌ You need administrator permissions.", ephemeral=True)
-        return
-
     config['wait_minutes'] = minutes
     await interaction.response.send_message(f"⏱️ Wait time updated to **{minutes}** minutes.", ephemeral=True)
 
-# Slash command: Set auto-scan interval
-@tree.command(name="set_auto_scan_interval", description="Set how often auto-scan runs (in minutes)")
+# Slash command to set auto scan interval
+@tree.command(name="set_auto_scan_interval", description="Set how often auto-scan runs (in minutes)", guild=discord.Object(id=NSFW_GUILD_ID))
+@commands.has_permissions(administrator=True)
 async def set_auto_scan_interval(interaction: discord.Interaction, minutes: int):
-    if not interaction.user.guild_permissions.administrator:
-        await interaction.response.send_message("❌ You need administrator permissions.", ephemeral=True)
-        return
-
     config['auto_scan_interval'] = minutes
     auto_scan_all_members.change_interval(minutes=minutes)
     await interaction.response.send_message(f"🔁 Auto-scan interval updated to **{minutes}** minutes.", ephemeral=True)
 
-# Slash command: Manual scan
-@tree.command(name="scan_existing", description="Manually scan all NSFW members for Main Server access")
+# Manual scan
+@tree.command(name="scan_existing", description="Manually scan all NSFW members for Main Server access", guild=discord.Object(id=NSFW_GUILD_ID))
+@commands.has_permissions(administrator=True)
 async def scan_existing(interaction: discord.Interaction):
-    if not interaction.user.guild_permissions.administrator:
-        await interaction.response.send_message("❌ You need administrator permissions.", ephemeral=True)
-        return
-
     await interaction.response.send_message("🔍 Scanning NSFW server...", ephemeral=True)
+
     nsfw = bot.get_guild(NSFW_GUILD_ID)
     main = bot.get_guild(MAIN_GUILD_ID)
     role = nsfw.get_role(ACCESS_ROLE_ID)
@@ -164,9 +155,13 @@ async def scan_existing(interaction: discord.Interaction):
                     await log.send(f"✅ Access given to <@{m.id}> via manual scan")
             except Exception as e:
                 print(f"[ERROR] Manual scan: {e}")
-
     await interaction.followup.send(f"✅ Manual scan complete. Access given to **{added}** users.", ephemeral=True)
 
-# Run bot with keep_alive
+# Test slash command
+@tree.command(name="test", description="Check if the bot is working", guild=discord.Object(id=NSFW_GUILD_ID))
+async def test(interaction: discord.Interaction):
+    await interaction.response.send_message("✅ Bot is working and slash commands are live!", ephemeral=True)
+
+# Run
 keep_alive()
 bot.run(TOKEN)
